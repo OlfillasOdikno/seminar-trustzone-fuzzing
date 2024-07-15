@@ -1,0 +1,123 @@
+diff --git a/tsmok/examples/optee/optee_gen_samples.py b/tsmok/examples/optee/optee_gen_samples.py
+index 238c18e..ba37dc7 100644
+--- a/tsmok/examples/optee/optee_gen_samples.py
++++ b/tsmok/examples/optee/optee_gen_samples.py
+@@ -44,21 +44,16 @@ def gen_ta_samples(dir_path):
+ 
+   open_session = syscalls[optee_syscalls.OpteeTaCall.OPEN_SESSION]
+   invoke_command = syscalls[optee_syscalls.OpteeTaCall.INVOKE_COMMAND]
+-
+-  out = bytes(open_session(1, []))
+-  with open(dir_path + SAMPLE_BASE_NAME.format(sample_id), 'bw') as f:
+-    f.write(out)
+   sample_id += 1
+ 
+-  out += bytes(invoke_command(None, [utee_args.OpteeUteeParamValueInOut(1, 0)],
++  out = bytes(invoke_command(1, [utee_args.OpteeUteeParamValueInOut(0x45, 0)],
+                               0))
+ 
+   with open(dir_path + SAMPLE_BASE_NAME.format(sample_id), 'bw') as f:
+     f.write(out)
+   sample_id += 1
+ 
+-  out = bytes(open_session(1, []))
+-  out += bytes(invoke_command(None, [utee_args.OpteeUteeParamValueInOut(1, 0)],
++  out = bytes(invoke_command(1, [utee_args.OpteeUteeParamValueInOut(1, 0)],
+                               1))
+   with open(dir_path + SAMPLE_BASE_NAME.format(sample_id), 'bw') as f:
+     f.write(out)
+diff --git a/tsmok/examples/optee/ta_arm64_fuzz_app.py b/tsmok/examples/optee/ta_arm64_fuzz_app.py
+index 928ec95..2740d40 100644
+--- a/tsmok/examples/optee/ta_arm64_fuzz_app.py
++++ b/tsmok/examples/optee/ta_arm64_fuzz_app.py
+@@ -42,15 +42,8 @@ def sigint_handler(fuzzer, signum, frame):
+ class TaExampleFuzzOps(ta_fuzz.TaFuzzingOps):
+   """Ops for TA fuzzing."""
+ 
+-  def __init__(self):
+-    ta_fuzz.TaFuzzingOps.__init__(self)
+-
+-    # limit cmd only to 0 and 1 for invoke_command
+-    self._nr_arg_handler[optee_syscalls.OpteeTaCall.INVOKE_COMMAND]['cmd'] = \
+-        self._invoke_cmd_filter
+-
+-  def _invoke_cmd_filter(self, value):
+-    return value % 2
++  def __init__(self, ta):
++    ta_fuzz.TaFuzzingOps.__init__(self, ta)
+ 
+ 
+ def syscall_filter(syscalls):
+@@ -103,7 +96,7 @@ def run(args):
+   sid = 1
+   ta.open_session(sid, [])
+ 
+-  ta_ops = ta_fuzz.TaExampleFuzzOps(ta)
++  ta_ops = TaExampleFuzzOps(ta)
+ 
+   log.info('Run TA fuzzer')
+   fuzzer = fuzz.SysFuzzer(ta_ops.get_ctx(), syscalls,
+diff --git a/tsmok/fuzzing/sys_fuzzer.py b/tsmok/fuzzing/sys_fuzzer.py
+index 4648711..c857e3b 100644
+--- a/tsmok/fuzzing/sys_fuzzer.py
++++ b/tsmok/fuzzing/sys_fuzzer.py
+@@ -110,7 +110,7 @@ class SysFuzzer:
+       try:
+         val = cls.parse_arg_value(info, args_data.pop(0))
+         if self._ops.arg_value_checker:
+-          self._ops.arg_value_checker(cls.NR, info.name, val)
++          val = self._ops.arg_value_checker(cls.NR, info.name, val)
+         values.append(val)
+         if syscall.ArgFlags.ARRAY in info.options:
+           arrays[info.name] = val
+@@ -133,6 +133,7 @@ class SysFuzzer:
+       Error exception in case of unexpected error.
+     """
+     args_data = data.split(syscall.Syscall.CALLDELIM)
++    ret = optee_error.OpteeErrorCode.SUCCESS
+     for adata in args_data:
+       if not adata:
+         continue
+diff --git a/tsmok/optee/optee.py b/tsmok/optee/optee.py
+index 1b0dbbc..cc5d6b4 100644
+--- a/tsmok/optee/optee.py
++++ b/tsmok/optee/optee.py
+@@ -28,6 +28,8 @@ import tsmok.optee.storage as optee_storage
+ import tsmok.optee.syscalls as syscalls
+ import tsmok.optee.ta.base as ta_base
+ import tsmok.optee.utee_args as utee_args
++import os
++import signal
+ 
+ 
+ class Optee:
+@@ -65,6 +67,9 @@ class Optee:
+         self.syscall_get_property_name_to_index
+     self.syscall_callbacks[syscalls.OpteeSysCall.GET_PROPERTY] = \
+         self.syscall_get_property
++        
++    self.syscall_callbacks[syscalls.OpteeSysCall.CHECK_ACCESS_RIGHTS] = \
++        self.syscall_check_access_rights
+ 
+     # TA syscall
+     self.syscall_callbacks[syscalls.OpteeSysCall
+@@ -229,7 +234,8 @@ class Optee:
+     return optee_error.OpteeErrorCode.SUCCESS
+ 
+   def syscall_panic(self, ta, args) -> optee_error.OpteeErrorCode:
+-    raise ta_base.TaPanicError(args[0], f'TA {ta.uuid} PANIC')
++    self.log.info('[PANIC]:> \n\t\t %s', f'TA {ta.uuid} PANIC')
++    os.kill(os.getpid(), signal.SIGABRT)
+ 
+   def syscall_return(self, ta, args) -> optee_error.OpteeErrorCode:
+     try:
+@@ -1361,3 +1367,8 @@ class Optee:
+       ta.u32_write(args[6], int(prop.type))
+ 
+     return optee_error.OpteeErrorCode.SUCCESS
++
++
++  def syscall_check_access_rights(self, ta: ta_base.Ta,
++                           args: List[int]) -> optee_error.OpteeErrorCode:
++    return optee_error.OpteeErrorCode.SUCCESS
+\ No newline at end of file

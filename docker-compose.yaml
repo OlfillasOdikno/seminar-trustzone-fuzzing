@@ -1,0 +1,85 @@
+networks:
+  statsd-net:
+    driver: bridge
+
+volumes:
+    prometheus_data: {}
+
+services:
+  prometheus:
+    image: prom/prometheus
+    container_name: prometheus
+    volumes:
+      - ./prometheus.yml:/prometheus.yml
+      - prometheus_data:/prometheus
+    command:
+      - '--config.file=/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+    restart: unless-stopped
+    ports:
+      - "9090:9090"
+    networks:
+      - statsd-net
+
+  statsd_exporter_tsmok:
+    image: prom/statsd-exporter
+    container_name: statsd_exporter_tsmok
+    volumes:
+      - ./statsd_mapping_tsmok.yml:/statsd_mapping.yml
+    command:
+      - "--statsd.mapping-config=/statsd_mapping.yml"
+    ports:
+      - "9102:9102/tcp"
+      - "8125:9125/udp"
+    networks:
+      - statsd-net
+
+  statsd_exporter_dta:
+    image: prom/statsd-exporter
+    container_name: statsd_exporter_dta
+    volumes:
+      - ./statsd_mapping_dta.yml:/statsd_mapping.yml
+    command:
+      - "--statsd.mapping-config=/statsd_mapping.yml"
+    ports:
+      - "19102:9102/tcp"
+      - "18125:9125/udp"
+    networks:
+      - statsd-net
+
+  grafana:
+    image: grafana/grafana
+    container_name: grafana
+    restart: unless-stopped
+    ports:
+        - "3000:3000"
+    networks:
+      - statsd-net
+    volumes:
+      - ./grafana/dashboard.yaml:/etc/grafana/provisioning/dashboards/main.yaml
+      - ./grafana/datasource.yaml:/etc/grafana/provisioning/datasources/main.yaml
+      - ./grafana/dashboards:/var/lib/grafana/dashboards
+
+  tsmok:
+    build:
+      context: tsmok
+      dockerfile: Dockerfile
+    networks:
+      - statsd-net
+    volumes:
+      - type: tmpfs
+        target: /ramdisk
+      - ./tsmok_state:/shared
+    depends_on:
+      - statsd_exporter_tsmok
+
+  dta:
+    build:
+      context: dta
+      dockerfile: Dockerfile
+    networks:
+      - statsd-net
+    volumes:
+      - ./dta_state:/shared
+    depends_on:
+      - statsd_exporter_dta

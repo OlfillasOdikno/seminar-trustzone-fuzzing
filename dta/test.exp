@@ -1,0 +1,20 @@
+#!/usr/bin/expect -f
+
+spawn /work/optee/build/soc_term.py 54320
+
+expect "buildroot login: "
+send -- "root\r\r"
+expect "# "
+send -- "export AFL_STATSD_TAGS_FLAVOR=dogstatsd\r\r"
+send -- "export AFL_STATSD=1\r\r"
+send -- "export AFL_STATSD_HOST=statsd_exporter_dta\r\r"
+send -- "export AFL_STATSD_PORT=9125\r\r"
+send -- "mkdir -p /ramdisk\r\r"
+send -- "mount -t tmpfs /ramdisk\r\r"
+send -- "export AFL_TMPDIR=/ramdisk\r\r"
+send -- "mkdir -p in\r\r"
+send -- "echo 0000000000FFF0000000000000000000000000000000 | xxd -p -r > in/start\r\r"
+send -- "mount -t 9p -o trans=virtio,version=9p2000.L,msize=65536,rw host /mnt/host\r\r"
+send -- "./afl-fuzz -O -i in -o /mnt/host -D -- benchmark_dta -d\r\r"
+interact
+expect eof

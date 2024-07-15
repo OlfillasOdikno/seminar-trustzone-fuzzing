@@ -1,0 +1,24 @@
+diff --git a/qemu_v8.mk b/qemu_v8.mk
+index 6688472..7dd0972 100644
+--- a/qemu_v8.mk
++++ b/qemu_v8.mk
+@@ -548,15 +548,15 @@ endif
+ 
+ QEMU_RUN_ARGS = $(QEMU_BASE_ARGS) $(QEMU_SCMI_ARGS)
+ QEMU_RUN_ARGS += $(QEMU_RUN_ARGS_COMMON)
+-QEMU_RUN_ARGS += -s -S -serial tcp:127.0.0.1:$(QEMU_NW_PORT) -serial tcp:127.0.0.1:$(QEMU_SW_PORT) 
++QEMU_RUN_ARGS += -monitor none -serial tcp:127.0.0.1:$(QEMU_NW_PORT) -serial tcp:127.0.0.1:$(QEMU_SW_PORT) 
+ 
+ .PHONY: run-only
+ run-only:
+ 	ln -sf $(ROOT)/out-br/images/rootfs.cpio.gz $(BINARIES_PATH)/
+-	$(call check-terminal)
++#	$(call check-terminal)
+ 	$(call run-help)
+-	$(call launch-terminal,$(QEMU_NW_PORT),"Normal World")
+-	$(call launch-terminal,$(QEMU_SW_PORT),"Secure World")
++#	$(call launch-terminal,$(QEMU_NW_PORT),"Normal World")
++#	$(call launch-terminal,$(QEMU_SW_PORT),"Secure World")
+ 	$(call wait-for-ports,$(QEMU_NW_PORT),$(QEMU_SW_PORT))
+ 	cd $(BINARIES_PATH) && $(QEMU_BUILD)/aarch64-softmmu/qemu-system-aarch64 \
+ 		$(QEMU_RUN_ARGS)
