@@ -1,8 +1,8 @@
 diff --git a/tsmok/examples/optee/optee_gen_samples.py b/tsmok/examples/optee/optee_gen_samples.py
-index 238c18e..ba37dc7 100644
+index 238c18e..29d2809 100644
 --- a/tsmok/examples/optee/optee_gen_samples.py
 +++ b/tsmok/examples/optee/optee_gen_samples.py
-@@ -44,21 +44,16 @@ def gen_ta_samples(dir_path):
+@@ -44,25 +44,14 @@ def gen_ta_samples(dir_path):
  
    open_session = syscalls[optee_syscalls.OpteeTaCall.OPEN_SESSION]
    invoke_command = syscalls[optee_syscalls.OpteeTaCall.INVOKE_COMMAND]
@@ -13,19 +13,22 @@ index 238c18e..ba37dc7 100644
    sample_id += 1
  
 -  out += bytes(invoke_command(None, [utee_args.OpteeUteeParamValueInOut(1, 0)],
-+  out = bytes(invoke_command(1, [utee_args.OpteeUteeParamValueInOut(0x45, 0)],
++  out = bytes(invoke_command(0, [utee_args.OpteeUteeParamValueInput(0, 0), utee_args.OpteeUteeParamValueInput(0, 0)],
                                0))
  
    with open(dir_path + SAMPLE_BASE_NAME.format(sample_id), 'bw') as f:
      f.write(out)
-   sample_id += 1
+-  sample_id += 1
  
 -  out = bytes(open_session(1, []))
 -  out += bytes(invoke_command(None, [utee_args.OpteeUteeParamValueInOut(1, 0)],
-+  out = bytes(invoke_command(1, [utee_args.OpteeUteeParamValueInOut(1, 0)],
-                               1))
-   with open(dir_path + SAMPLE_BASE_NAME.format(sample_id), 'bw') as f:
-     f.write(out)
+-                              1))
+-  with open(dir_path + SAMPLE_BASE_NAME.format(sample_id), 'bw') as f:
+-    f.write(out)
+-  sample_id += 1
+ 
+ 
+ def gen_tee_samples(dir_path):
 diff --git a/tsmok/examples/optee/ta_arm64_fuzz_app.py b/tsmok/examples/optee/ta_arm64_fuzz_app.py
 index 928ec95..2740d40 100644
 --- a/tsmok/examples/optee/ta_arm64_fuzz_app.py
